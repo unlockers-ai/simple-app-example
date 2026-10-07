@@ -18,7 +18,7 @@ declare global {
   }
 }
 
-const jwks = createRemoteJWKSet(new URL(`${config.issuer}/protocol/openid-connect/certs`));
+const jwks = createRemoteJWKSet(new URL(config.jwksUrl));
 
 // Verifies the Bearer access token issued by Keycloak and exposes the caller on req.user.
 export async function authenticate(req: Request, res: Response, next: NextFunction) {

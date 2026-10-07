@@ -1,3 +1,5 @@
+# Développement local : Keycloak (realm réimporté à chaque démarrage) + Postgres pour l'API.
+# Le front et l'API tournent hors Docker avec `npm run dev`.
 services:
   keycloak:
     image: quay.io/keycloak/keycloak:26.4
@@ -10,3 +12,17 @@ services:
     volumes:
       - ./keycloak/realm-simple-app.json:/opt/keycloak/data/import/realm-simple-app.json:ro
       - ./keycloak/themes/prompt-library:/opt/keycloak/themes/prompt-library:ro
+
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: app
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:

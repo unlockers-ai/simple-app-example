@@ -12,7 +12,7 @@
   "registrationAllowed": true,
   "loginWithEmailAllowed": true,
   "resetPasswordAllowed": false,
-  "sslRequired": "none",
+  "sslRequired": "${KC_SSL_REQUIRED:none}",
   "roles": {
     "realm": [
       {
@@ -54,16 +54,16 @@
   },
   "users": [
     {
-      "username": "alice",
-      "email": "alice@example.com",
-      "firstName": "Alice",
-      "lastName": "Admin",
+      "username": "emilie",
+      "email": "emilie@example.com",
+      "firstName": "Émilie",
+      "lastName": "Durand",
       "enabled": true,
       "emailVerified": true,
       "credentials": [
         {
           "type": "password",
-          "value": "alice",
+          "value": "${EMILIE_PASSWORD:emilie}",
           "temporary": false
         }
       ],
@@ -73,16 +73,16 @@
       ]
     },
     {
-      "username": "eddie",
-      "email": "eddie@example.com",
-      "firstName": "Eddie",
-      "lastName": "Editor",
+      "username": "sarah",
+      "email": "sarah@example.com",
+      "firstName": "Sarah",
+      "lastName": "Lemaire",
       "enabled": true,
       "emailVerified": true,
       "credentials": [
         {
           "type": "password",
-          "value": "eddie",
+          "value": "${SARAH_PASSWORD:sarah}",
           "temporary": false
         }
       ],
@@ -95,13 +95,13 @@
       "username": "victor",
       "email": "victor@example.com",
       "firstName": "Victor",
-      "lastName": "Viewer",
+      "lastName": "Petit",
       "enabled": true,
       "emailVerified": true,
       "credentials": [
         {
           "type": "password",
-          "value": "victor",
+          "value": "${VICTOR_PASSWORD:victor}",
           "temporary": false
         }
       ],
@@ -128,14 +128,14 @@
       "standardFlowEnabled": true,
       "directAccessGrantsEnabled": false,
       "redirectUris": [
-        "http://localhost:5173/*"
+        "${APP_URL:http://localhost:5173}/*"
       ],
       "webOrigins": [
-        "http://localhost:5173"
+        "${APP_URL:http://localhost:5173}"
       ],
       "attributes": {
         "pkce.code.challenge.method": "S256",
-        "post.logout.redirect.uris": "http://localhost:5173/*"
+        "post.logout.redirect.uris": "${APP_URL:http://localhost:5173}/*"
       },
       "protocolMappers": [
         {
@@ -155,7 +155,7 @@
       "name": "Agent (service account)",
       "enabled": true,
       "publicClient": false,
-      "secret": "agent-secret-change-me",
+      "secret": "${AGENT_CLIENT_SECRET:agent-secret-change-me}",
       "standardFlowEnabled": false,
       "directAccessGrantsEnabled": false,
       "serviceAccountsEnabled": true,

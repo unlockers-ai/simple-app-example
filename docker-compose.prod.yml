@@ -1,0 +1,84 @@
+# Production sur le serveur unlockers.ai (déployé par deploy/deploy.sh).
+# Caddy (dépôt unlockers-infra) termine le HTTPS et route example-app.unlockers.ai :
+#   /auth/* → example-app-keycloak:8080, le reste → example-app-web:3000.
+# Aucun port publié : les conteneurs exposés rejoignent le réseau partagé `web`.
+# Secrets : .env à côté de ce fichier sur le serveur, généré au premier déploiement.
+name: example-app
+
+services:
+  web:
+    container_name: example-app-web
+    build:
+      context: .
+      args:
+        VITE_OIDC_AUTHORITY: ${APP_URL}/auth/realms/simple-app
+    environment:
+      OIDC_ISSUER: ${APP_URL}/auth/realms/simple-app
+      OIDC_JWKS_URL: http://example-app-keycloak:8080/auth/realms/simple-app/protocol/openid-connect/certs
+      DATABASE_URL: postgres://app:${POSTGRES_PASSWORD}@example-app-postgres:5432/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    networks: [web, internal]
+
+  keycloak:
+    container_name: example-app-keycloak
+    image: quay.io/keycloak/keycloak:26.4
+    command: >
+      start --import-realm
+      --http-enabled=true
+      --http-relative-path=/auth
+      --hostname=${APP_URL}/auth
+      --proxy-headers=xforwarded
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://example-app-postgres:5432/keycloak
+      KC_DB_USERNAME: app
+      KC_DB_PASSWORD: ${POSTGRES_PASSWORD}
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KC_ADMIN_PASSWORD}
+      # Petit serveur partagé : on borne la mémoire de la JVM.
+      JAVA_OPTS_KC_HEAP: -Xms128m -Xmx512m
+      # Valeurs injectées dans keycloak/realm-simple-app.json au premier import.
+      APP_URL: ${APP_URL}
+      KC_SSL_REQUIRED: external
+      AGENT_CLIENT_SECRET: ${AGENT_CLIENT_SECRET}
+      EMILIE_PASSWORD: ${EMILIE_PASSWORD}
+      SARAH_PASSWORD: ${SARAH_PASSWORD}
+      VICTOR_PASSWORD: ${VICTOR_PASSWORD}
+    volumes:
+      - ./keycloak/realm-simple-app.json:/opt/keycloak/data/import/realm-simple-app.json:ro
+      - ./keycloak/themes/prompt-library:/opt/keycloak/themes/prompt-library:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    networks: [web, internal]
+
+  postgres:
+    container_name: example-app-postgres
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: app
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "app", "-d", "app"]
+      interval: 5s
+      retries: 10
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # Crée la base `keycloak` à côté de la base `app`, au tout premier démarrage.
+      - ./deploy/initdb.sql:/docker-entrypoint-initdb.d/initdb.sql:ro
+    restart: unless-stopped
+    networks: [internal]
+
+networks:
+  web:
+    external: true
+    name: web
+  internal:
+
+volumes:
+  postgres_data:

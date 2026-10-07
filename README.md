@@ -14,7 +14,7 @@ Le sujet : une bibliothèque de prompts partagée entre l'équipe et des agents.
       ▼                                          ▼
 ┌────────────────────────────────────────────────────────┐
 │ Backend Express : vérifie le JWT, contrôle les rôles,  │
-│ stocke dans SQLite (node:sqlite)                       │
+│ stocke dans Postgres                                   │
 └────────────────────────────────────────────────────────┘
 ```
 
@@ -23,7 +23,7 @@ Le sujet : une bibliothèque de prompts partagée entre l'équipe et des agents.
 Prérequis : Node 24+, Docker.
 
 ```bash
-docker compose up -d     # Keycloak sur http://localhost:8080 (≈ 15 s au premier démarrage)
+docker compose up -d     # Keycloak sur :8080 (≈ 15 s au premier démarrage) + Postgres sur :5432
 npm install
 npm run dev              # API sur :3000, front sur http://localhost:5173
 ```
@@ -32,8 +32,8 @@ Comptes de test (mot de passe = identifiant) :
 
 | Utilisateur | Rôle     | Peut…                          |
 | ----------- | -------- | ------------------------------ |
-| `alice`     | `admin`  | lire, créer, modifier, supprimer |
-| `eddie`     | `editor` | lire, créer, modifier          |
+| `emilie`    | `admin`  | lire, créer, modifier, supprimer |
+| `sarah`     | `editor` | lire, créer, modifier          |
 | `victor`    | `viewer` | lire                           |
 
 Console d'admin Keycloak : http://localhost:8080/admin (`admin` / `admin`), realm **simple-app**.
@@ -80,11 +80,43 @@ La configuration Keycloak (realm, rôles, clients, utilisateurs de test) est dan
 `keycloak/realm-simple-app.json`, importée au démarrage du conteneur. Le thème de la page de login
 est dans `keycloak/themes/prompt-library`.
 
-Keycloak tourne en mode dev (base H2 en mémoire) : **un redémarrage du conteneur réinitialise le realm**
-à partir du JSON. Pour garder des changements faits dans la console, les exporter dans ce fichier.
+Le fichier de realm contient des variables `${NOM:valeur-par-défaut}` (URL de l'app, mots de passe
+des comptes de test, secret de l'agent) : en dev les valeurs par défaut s'appliquent, en prod elles
+viennent du `.env` du serveur.
 
-> Avant une mise en production : `sslRequired` à `external`, changer le secret de `prompt-agent`,
-> supprimer les utilisateurs de test, et faire tourner Keycloak en mode `start` avec une vraie base.
+En dev, Keycloak tourne en mode `start-dev` (base H2 interne) : **recréer le conteneur réinitialise
+le realm** à partir du JSON (`docker compose up -d --force-recreate keycloak`). Pour garder des
+changements faits dans la console, les reporter dans ce fichier.
+
+## Production
+
+En ligne sur **https://example-app.unlockers.ai**, sur le serveur unlockers.ai (Hetzner).
+
+```bash
+./deploy/deploy.sh
+```
+
+Le script copie le code par `rsync` vers `~/example-app` sur le serveur (alias ssh `unlockers`), puis
+lance `docker compose -f docker-compose.prod.yml up -d --build`. Trois conteneurs :
+
+| Conteneur              | Rôle                                                        |
+| ---------------------- | ----------------------------------------------------------- |
+| `example-app-web`      | API Node qui sert aussi le front compilé (voir `Dockerfile`) |
+| `example-app-keycloak` | Keycloak en mode production, servi sous `/auth`             |
+| `example-app-postgres` | Postgres : base `app` pour l'API, base `keycloak`           |
+
+- **HTTPS et routage** : le Caddy partagé du serveur, configuré dans le dépôt
+  `unlockers-ai/unlockers-infra` (`caddy/config/sites/example-app.caddy`). Le certificat
+  Let's Encrypt est automatique ; le DNS `*.unlockers.ai` pointe déjà sur le serveur.
+- **Secrets** : générés au premier déploiement dans `~/example-app/.env` sur le serveur, jamais
+  commités (mot de passe Postgres, admin Keycloak, secret de l'agent, mots de passe des comptes de
+  test). Pour les lire : `ssh unlockers cat example-app/.env`.
+- **Console d'admin** : https://example-app.unlockers.ai/auth/admin (`admin` / `KC_ADMIN_PASSWORD`).
+- **Le realm n'est importé qu'au premier démarrage** : ensuite il vit dans Postgres, et les
+  modifications du JSON ne s'appliquent plus en prod. Les faire dans la console (et les reporter
+  dans le JSON pour le dev).
+- **Agent en prod** : `KEYCLOAK=https://example-app.unlockers.ai/auth/realms/simple-app
+  API=https://example-app.unlockers.ai/api CLIENT_SECRET=… ./scripts/agent-demo.sh`
 
 ## Partir de ce modèle pour un nouveau projet
 
@@ -92,4 +124,7 @@ Sur GitHub : **Use this template**. Puis, en général :
 
 - renommer le realm / les clients dans `keycloak/realm-simple-app.json` et les `.env.example` ;
 - remplacer `backend/src/db.ts` et les routes de `backend/src/server.ts` par votre métier ;
-- remplacer `PromptsPage` / `PromptCard` / `PromptDialog` côté front.
+- remplacer `PromptsPage` / `PromptCard` / `PromptDialog` côté front ;
+- pour le déploiement : changer `DEPLOY_DIR`, `APP_URL` et les noms de conteneurs `example-app-*`
+  (`docker-compose.prod.yml`, `deploy/deploy.sh`), et ajouter le fichier Caddy correspondant
+  dans `unlockers-infra`.

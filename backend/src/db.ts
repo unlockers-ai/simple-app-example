@@ -1,4 +1,4 @@
-import { DatabaseSync } from 'node:sqlite';
+import pg from 'pg';
 import { config } from './config.ts';
 
 export type Prompt = {
@@ -8,8 +8,8 @@ export type Prompt = {
   tags: string[];
   favorite: boolean;
   createdBy: string;
-  createdAt: string;
-  updatedAt: string;
+  createdAt: Date;
+  updatedAt: Date;
 };
 
 export type PromptInput = Pick<Prompt, 'title' | 'content' | 'tags' | 'favorite'>;
@@ -18,67 +18,58 @@ type Row = {
   id: number;
   title: string;
   content: string;
-  tags: string;
-  favorite: number;
+  tags: string[];
+  favorite: boolean;
   created_by: string;
-  created_at: string;
-  updated_at: string;
+  created_at: Date;
+  updated_at: Date;
 };
 
-const db = new DatabaseSync(config.dbFile);
-
-db.exec(`
-  CREATE TABLE IF NOT EXISTS prompts (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    title      TEXT    NOT NULL,
-    content    TEXT    NOT NULL,
-    tags       TEXT    NOT NULL DEFAULT '[]',
-    favorite   INTEGER NOT NULL DEFAULT 0,
-    created_by TEXT    NOT NULL,
-    created_at TEXT    NOT NULL DEFAULT (datetime('now')),
-    updated_at TEXT    NOT NULL DEFAULT (datetime('now'))
-  )
-`);
+const pool = new pg.Pool({ connectionString: config.databaseUrl });
 
 function toPrompt(row: Row): Prompt {
   return {
     id: row.id,
     title: row.title,
     content: row.content,
-    tags: JSON.parse(row.tags),
-    favorite: row.favorite === 1,
+    tags: row.tags,
+    favorite: row.favorite,
     createdBy: row.created_by,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
 }
 
-export function listPrompts(): Prompt[] {
-  const rows = db.prepare('SELECT * FROM prompts ORDER BY favorite DESC, updated_at DESC').all();
-  return (rows as Row[]).map(toPrompt);
+export async function listPrompts(): Promise<Prompt[]> {
+  const { rows } = await pool.query<Row>('SELECT * FROM prompts ORDER BY favorite DESC, updated_at DESC');
+  return rows.map(toPrompt);
 }
 
-export function getPrompt(id: number): Prompt | undefined {
-  const row = db.prepare('SELECT * FROM prompts WHERE id = ?').get(id) as Row | undefined;
-  return row && toPrompt(row);
+export async function getPrompt(id: number): Promise<Prompt | undefined> {
+  const { rows } = await pool.query<Row>('SELECT * FROM prompts WHERE id = $1', [id]);
+  return rows[0] && toPrompt(rows[0]);
 }
 
-export function createPrompt(input: PromptInput, createdBy: string): Prompt {
-  const { lastInsertRowid } = db
-    .prepare('INSERT INTO prompts (title, content, tags, favorite, created_by) VALUES (?, ?, ?, ?, ?)')
-    .run(input.title, input.content, JSON.stringify(input.tags), input.favorite ? 1 : 0, createdBy);
-  return getPrompt(Number(lastInsertRowid))!;
+export async function createPrompt(input: PromptInput, createdBy: string): Promise<Prompt> {
+  const { rows } = await pool.query<Row>(
+    `INSERT INTO prompts (title, content, tags, favorite, created_by) VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+    [input.title, input.content, input.tags, input.favorite, createdBy],
+  );
+  return toPrompt(rows[0]);
 }
 
-export function updatePrompt(id: number, input: PromptInput): Prompt | undefined {
-  db.prepare(
-    `UPDATE prompts SET title = ?, content = ?, tags = ?, favorite = ?, updated_at = datetime('now') WHERE id = ?`,
-  ).run(input.title, input.content, JSON.stringify(input.tags), input.favorite ? 1 : 0, id);
-  return getPrompt(id);
+export async function updatePrompt(id: number, input: PromptInput): Promise<Prompt | undefined> {
+  const { rows } = await pool.query<Row>(
+    `UPDATE prompts SET title = $1, content = $2, tags = $3, favorite = $4, updated_at = now()
+     WHERE id = $5 RETURNING *`,
+    [input.title, input.content, input.tags, input.favorite, id],
+  );
+  return rows[0] && toPrompt(rows[0]);
 }
 
-export function deletePrompt(id: number): boolean {
-  return db.prepare('DELETE FROM prompts WHERE id = ?').run(id).changes > 0;
+export async function deletePrompt(id: number): Promise<boolean> {
+  const { rowCount } = await pool.query('DELETE FROM prompts WHERE id = $1', [id]);
+  return rowCount === 1;
 }
 
 const seed: PromptInput[] = [
@@ -105,6 +96,22 @@ const seed: PromptInput[] = [
   },
 ];
 
-if ((db.prepare('SELECT COUNT(*) AS n FROM prompts').get() as { n: number }).n === 0) {
-  for (const p of seed) createPrompt(p, 'Prompt Library');
+// Creates the schema on first start and fills an empty table with a few examples.
+export async function initDb() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS prompts (
+      id         SERIAL      PRIMARY KEY,
+      title      TEXT        NOT NULL,
+      content    TEXT        NOT NULL,
+      tags       TEXT[]      NOT NULL DEFAULT '{}',
+      favorite   BOOLEAN     NOT NULL DEFAULT false,
+      created_by TEXT        NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+  `);
+  const { rows } = await pool.query<{ n: number }>('SELECT COUNT(*)::int AS n FROM prompts');
+  if (rows[0].n === 0) {
+    for (const p of seed) await createPrompt(p, 'Prompt Library');
+  }
 }

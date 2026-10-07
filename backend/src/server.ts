@@ -1,7 +1,8 @@
+import path from 'node:path';
 import express, { type Request, type Response } from 'express';
 import { authenticate, requireRole } from './auth.ts';
 import { config } from './config.ts';
-import { createPrompt, deletePrompt, getPrompt, listPrompts, updatePrompt, type PromptInput } from './db.ts';
+import { createPrompt, deletePrompt, getPrompt, initDb, listPrompts, updatePrompt, type PromptInput } from './db.ts';
 
 const app = express();
 app.use(express.json());
@@ -16,32 +17,32 @@ app.get('/api/me', (req, res) => {
   res.json(req.user);
 });
 
-app.get('/api/prompts', requireRole('viewer'), (_req, res) => {
-  res.json(listPrompts());
+app.get('/api/prompts', requireRole('viewer'), async (_req, res) => {
+  res.json(await listPrompts());
 });
 
-app.get('/api/prompts/:id', requireRole('viewer'), (req, res) => {
-  const prompt = getPrompt(Number(req.params.id));
+app.get('/api/prompts/:id', requireRole('viewer'), async (req, res) => {
+  const prompt = await getPrompt(Number(req.params.id));
   if (!prompt) return res.status(404).json({ error: 'Not found' });
   res.json(prompt);
 });
 
-app.post('/api/prompts', requireRole('editor'), (req, res) => {
+app.post('/api/prompts', requireRole('editor'), async (req, res) => {
   const input = parseInput(req, res);
   if (!input) return;
-  res.status(201).json(createPrompt(input, req.user!.name));
+  res.status(201).json(await createPrompt(input, req.user!.name));
 });
 
-app.put('/api/prompts/:id', requireRole('editor'), (req, res) => {
+app.put('/api/prompts/:id', requireRole('editor'), async (req, res) => {
   const input = parseInput(req, res);
   if (!input) return;
-  const prompt = updatePrompt(Number(req.params.id), input);
+  const prompt = await updatePrompt(Number(req.params.id), input);
   if (!prompt) return res.status(404).json({ error: 'Not found' });
   res.json(prompt);
 });
 
-app.delete('/api/prompts/:id', requireRole('admin'), (req, res) => {
-  if (!deletePrompt(Number(req.params.id))) return res.status(404).json({ error: 'Not found' });
+app.delete('/api/prompts/:id', requireRole('admin'), async (req, res) => {
+  if (!(await deletePrompt(Number(req.params.id)))) return res.status(404).json({ error: 'Not found' });
   res.status(204).end();
 });
 
@@ -63,6 +64,14 @@ function parseInput(req: Request, res: Response): PromptInput | undefined {
   };
 }
 
+// Production: the API also serves the built frontend, with a fallback to index.html.
+if (config.staticDir) {
+  const staticDir = config.staticDir;
+  app.use(express.static(staticDir));
+  app.get(/^(?!\/api\/).*/, (_req, res) => res.sendFile(path.resolve(staticDir, 'index.html')));
+}
+
+await initDb();
 app.listen(config.port, () => {
   console.log(`API ready on http://localhost:${config.port}`);
 });
