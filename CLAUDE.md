@@ -9,7 +9,8 @@ En cas de doute, choisir la solution la plus simple et le moins de dépendances 
 - `npm run dev` : backend (:3000) et frontend (:5173) ensemble
 - `npm run typecheck` : vérification TypeScript des deux workspaces
 - `./scripts/agent-demo.sh` : appel de l'API avec le service account
-- `./deploy/deploy.sh` : déploiement en prod sur https://example-app.unlockers.ai (voir README)
+- Push sur `main` → déploiement auto (GitHub Actions) sur https://example-app.unlockers.ai ; `./deploy/deploy.sh` en manuel
+- Schémas d'architecture (Mermaid) : `docs/architecture.md`, à tenir à jour si l'architecture change
 
 ## Structure
 

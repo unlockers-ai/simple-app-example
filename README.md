@@ -5,38 +5,32 @@ Elle sert de point de départ pour de petits projets : on clone (ou « Use this 
 
 Le sujet : une bibliothèque de prompts partagée entre l'équipe et des agents.
 
-```
-┌────────────┐  login OIDC (code + PKCE)  ┌──────────────┐
-│  Frontend  │ ─────────────────────────▶ │   Keycloak   │  utilisateurs, rôles,
-│ React/Vite │ ◀───── access token ────── │   (Docker)   │  Google, service accounts
-└─────┬──────┘                            └──────┬───────┘
-      │ Authorization: Bearer <token>            │ JWKS (clés publiques)
-      ▼                                          ▼
-┌────────────────────────────────────────────────────────┐
-│ Backend Express : vérifie le JWT, contrôle les rôles,  │
-│ stocke dans Postgres                                   │
-└────────────────────────────────────────────────────────┘
-```
+- **En ligne** : https://example-app.unlockers.ai
+- **Schémas d'architecture** : [docs/architecture.md](docs/architecture.md) (briques, login OIDC,
+  rôles, agents, production)
 
-## Démarrer
+## Environnement de dev local
 
-Prérequis : Node 24+, Docker.
+Prérequis : **Node 24+** et **Docker** (Docker Desktop ou équivalent) démarré.
 
 ```bash
-docker compose up -d     # Keycloak sur :8080 (≈ 15 s au premier démarrage) + Postgres sur :5432
+git clone git@github.com:unlockers-ai/simple-app-example.git && cd simple-app-example
+docker compose up -d     # Keycloak (:8080) + Postgres (:5432), ≈ 15 s au premier démarrage
 npm install
-npm run dev              # API sur :3000, front sur http://localhost:5173
+npm run dev              # API :3000 + front → http://localhost:5173
 ```
 
-Comptes de test (mot de passe = identifiant) :
+Se connecter avec un compte de test (mot de passe = identifiant) :
 
-| Utilisateur | Rôle     | Peut…                          |
-| ----------- | -------- | ------------------------------ |
+| Utilisateur | Rôle     | Peut…                            |
+| ----------- | -------- | -------------------------------- |
 | `emilie`    | `admin`  | lire, créer, modifier, supprimer |
-| `sarah`     | `editor` | lire, créer, modifier          |
-| `victor`    | `viewer` | lire                           |
+| `sarah`     | `editor` | lire, créer, modifier            |
+| `victor`    | `viewer` | lire                             |
 
 Console d'admin Keycloak : http://localhost:8080/admin (`admin` / `admin`), realm **simple-app**.
+Aucun fichier `.env` n'est nécessaire en dev : tout a une valeur par défaut. `npm run typecheck`
+vérifie le code ; tout arrêter : `docker compose down`.
 
 ## Rôles et permissions
 
@@ -92,12 +86,10 @@ changements faits dans la console, les reporter dans ce fichier.
 
 En ligne sur **https://example-app.unlockers.ai**, sur le serveur unlockers.ai (Hetzner).
 
-```bash
-./deploy/deploy.sh
-```
-
-Le script copie le code par `rsync` vers `~/example-app` sur le serveur (alias ssh `unlockers`), puis
-lance `docker compose -f docker-compose.prod.yml up -d --build`. Trois conteneurs :
+**Chaque push sur `main` déploie automatiquement** (GitHub Actions, `.github/workflows/deploy.yml`) :
+typecheck, puis `deploy/deploy.sh`, qui copie le code par `rsync` vers `~/example-app` sur le serveur
+et lance `docker compose -f docker-compose.prod.yml up -d --build`. On peut aussi lancer
+`./deploy/deploy.sh` depuis son poste (alias ssh `unlockers`). Trois conteneurs :
 
 | Conteneur              | Rôle                                                        |
 | ---------------------- | ----------------------------------------------------------- |
@@ -108,7 +100,9 @@ lance `docker compose -f docker-compose.prod.yml up -d --build`. Trois conteneur
 - **HTTPS et routage** : le Caddy partagé du serveur, configuré dans le dépôt
   `unlockers-ai/unlockers-infra` (`caddy/config/sites/example-app.caddy`). Le certificat
   Let's Encrypt est automatique ; le DNS `*.unlockers.ai` pointe déjà sur le serveur.
-- **Secrets** : générés au premier déploiement dans `~/example-app/.env` sur le serveur, jamais
+- **Accès SSH de GitHub** : clé dédiée `gha-example-app` (secrets du repo `DEPLOY_SSH_KEY`,
+  `HETZNER_HOST`, `HETZNER_USER`, `DEPLOY_KNOWN_HOSTS`).
+- **Secrets de l'app** : générés au premier déploiement dans `~/example-app/.env` sur le serveur, jamais
   commités (mot de passe Postgres, admin Keycloak, secret de l'agent, mots de passe des comptes de
   test). Pour les lire : `ssh unlockers cat example-app/.env`.
 - **Console d'admin** : https://example-app.unlockers.ai/auth/admin (`admin` / `KC_ADMIN_PASSWORD`).
@@ -127,4 +121,6 @@ Sur GitHub : **Use this template**. Puis, en général :
 - remplacer `PromptsPage` / `PromptCard` / `PromptDialog` côté front ;
 - pour le déploiement : changer `DEPLOY_DIR`, `APP_URL` et les noms de conteneurs `example-app-*`
   (`docker-compose.prod.yml`, `deploy/deploy.sh`), et ajouter le fichier Caddy correspondant
-  dans `unlockers-infra`.
+  dans `unlockers-infra` ;
+- créer une clé SSH de déploiement et les secrets GitHub du nouveau repo (voir *Production*), sinon
+  le workflow de déploiement échoue — ou le supprimer.
