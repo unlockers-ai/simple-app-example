@@ -1,0 +1,176 @@
+{
+  "realm": "simple-app",
+  "displayName": "Prompt Library",
+  "enabled": true,
+  "loginTheme": "prompt-library",
+  "internationalizationEnabled": true,
+  "supportedLocales": [
+    "fr",
+    "en"
+  ],
+  "defaultLocale": "fr",
+  "registrationAllowed": true,
+  "loginWithEmailAllowed": true,
+  "resetPasswordAllowed": false,
+  "sslRequired": "none",
+  "roles": {
+    "realm": [
+      {
+        "name": "viewer",
+        "description": "Lire les prompts"
+      },
+      {
+        "name": "editor",
+        "description": "Créer et modifier les prompts",
+        "composite": true,
+        "composites": {
+          "realm": [
+            "viewer"
+          ]
+        }
+      },
+      {
+        "name": "admin",
+        "description": "Tout, y compris supprimer",
+        "composite": true,
+        "composites": {
+          "realm": [
+            "editor"
+          ]
+        }
+      }
+    ]
+  },
+  "defaultRole": {
+    "name": "default-roles-simple-app",
+    "composite": true,
+    "composites": {
+      "realm": [
+        "offline_access",
+        "uma_authorization",
+        "viewer"
+      ]
+    }
+  },
+  "users": [
+    {
+      "username": "alice",
+      "email": "alice@example.com",
+      "firstName": "Alice",
+      "lastName": "Admin",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "alice",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "default-roles-simple-app",
+        "admin"
+      ]
+    },
+    {
+      "username": "eddie",
+      "email": "eddie@example.com",
+      "firstName": "Eddie",
+      "lastName": "Editor",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "eddie",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "default-roles-simple-app",
+        "editor"
+      ]
+    },
+    {
+      "username": "victor",
+      "email": "victor@example.com",
+      "firstName": "Victor",
+      "lastName": "Viewer",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "victor",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "default-roles-simple-app"
+      ]
+    },
+    {
+      "username": "service-account-prompt-agent",
+      "enabled": true,
+      "serviceAccountClientId": "prompt-agent",
+      "realmRoles": [
+        "default-roles-simple-app",
+        "editor"
+      ]
+    }
+  ],
+  "clients": [
+    {
+      "clientId": "simple-app-frontend",
+      "name": "Prompt Library (web)",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "redirectUris": [
+        "http://localhost:5173/*"
+      ],
+      "webOrigins": [
+        "http://localhost:5173"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:5173/*"
+      },
+      "protocolMappers": [
+        {
+          "name": "api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.custom.audience": "simple-app-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "prompt-agent",
+      "name": "Agent (service account)",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "agent-secret-change-me",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "protocolMappers": [
+        {
+          "name": "api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.custom.audience": "simple-app-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        }
+      ]
+    }
+  ]
+}
