@@ -1,0 +1,36 @@
+{
+  "realm": "unlockers-crm",
+  "displayName": "Unlockers CRM",
+  "enabled": true,
+  "internationalizationEnabled": true,
+  "supportedLocales": ["fr", "en"],
+  "defaultLocale": "fr",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "resetPasswordAllowed": false,
+  "sslRequired": "external",
+  "roles": {
+    "realm": [
+      {
+        "name": "dirigeant",
+        "description": "Accès au CRM"
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "crm-frontend",
+      "name": "Unlockers CRM (web)",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "redirectUris": ["https://crm.unlockers.ai/*", "http://localhost:5173/*"],
+      "webOrigins": ["https://crm.unlockers.ai", "http://localhost:5173"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "https://crm.unlockers.ai/*##http://localhost:5173/*"
+      }
+    }
+  ]
+}

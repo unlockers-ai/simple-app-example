@@ -109,6 +109,10 @@ et lance `docker compose -f docker-compose.prod.yml up -d --build`. On peut auss
 - **Le realm n'est importé qu'au premier démarrage** : ensuite il vit dans Postgres, et les
   modifications du JSON ne s'appliquent plus en prod. Les faire dans la console (et les reporter
   dans le JSON pour le dev).
+- **Realm `unlockers-crm`** (CRM sur https://crm.unlockers.ai, repo `unlockers-ai/unlockers-crm`) :
+  ce Keycloak l'héberge aussi. `keycloak/realm-unlockers-crm.json` est une copie de celui du repo
+  CRM (realm, rôle `dirigeant`, client `crm-frontend`), sans utilisateurs : les créer dans la
+  console (realm unlockers-crm → Users, mot de passe, rôle `dirigeant`).
 - **Agent en prod** : `KEYCLOAK=https://example-app.unlockers.ai/auth/realms/simple-app
   API=https://example-app.unlockers.ai/api CLIENT_SECRET=… ./scripts/agent-demo.sh`
 

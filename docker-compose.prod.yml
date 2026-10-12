@@ -49,6 +49,8 @@ services:
       VICTOR_PASSWORD: ${VICTOR_PASSWORD}
     volumes:
       - ./keycloak/realm-simple-app.json:/opt/keycloak/data/import/realm-simple-app.json:ro
+      # Realm du CRM (crm.unlockers.ai, repo unlockers-ai/unlockers-crm), sans utilisateurs.
+      - ./keycloak/realm-unlockers-crm.json:/opt/keycloak/data/import/realm-unlockers-crm.json:ro
       - ./keycloak/themes/prompt-library:/opt/keycloak/themes/prompt-library:ro
     depends_on:
       postgres:
