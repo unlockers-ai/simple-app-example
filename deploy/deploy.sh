@@ -26,11 +26,6 @@ if [ ! -f .env ]; then
   cat > .env <<ENV
 APP_URL=$APP_URL
 POSTGRES_PASSWORD=$(secret)
-KC_ADMIN_PASSWORD=$(secret)
-AGENT_CLIENT_SECRET=$(secret)
-EMILIE_PASSWORD=$(secret)
-SARAH_PASSWORD=$(secret)
-VICTOR_PASSWORD=$(secret)
 ENV
   echo "Secrets générés dans ~/$DIR/.env sur le serveur."
 fi

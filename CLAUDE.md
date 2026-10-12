@@ -23,8 +23,9 @@ En cas de doute, choisir la solution la plus simple et le moins de dépendances 
 - `frontend/` : Vite + React 19, `react-oidc-context` pour le login. Pas de routeur : non connecté →
   `Landing`, connecté → `PromptsPage`. Les appels API passent par `api.ts` (proxy Vite `/api` → :3000).
   Styles dans un seul `styles.css` avec variables CSS (tons clairs, Fraunces + Manrope).
-- `keycloak/realm-simple-app.json` : la source de vérité de la config Keycloak (rôles, clients,
-  utilisateurs de test). Toute modification de config Keycloak doit y être reportée.
+- `keycloak/realm-simple-app.json` : la config Keycloak du dev (rôles, clients, utilisateurs de
+  test). En prod, le realm vit dans le Keycloak partagé (https://auth.unlockers.ai, dépôt
+  `unlockers-infra`) : toute modification faite dans l'un doit être reportée dans l'autre.
 
 ## Conventions
 
@@ -34,4 +35,5 @@ En cas de doute, choisir la solution la plus simple et le moins de dépendances 
 - Textes de l'interface en français.
 - Comptes de test : emilie (admin), sarah (editor), victor (viewer) ; en dev, mot de passe = identifiant.
 - Prod : `docker-compose.prod.yml` + `Dockerfile` ; le HTTPS et le routage sont dans le dépôt
-  `unlockers-infra` (Caddy partagé). Les secrets ne sont que dans `~/example-app/.env` sur le serveur.
+  `unlockers-infra` (Caddy partagé), comme le Keycloak partagé (`auth-keycloak`, realm simple-app).
+  Les secrets ne sont que dans `~/example-app/.env` sur le serveur.

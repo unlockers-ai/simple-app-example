@@ -95,8 +95,9 @@ sequenceDiagram
 ## 5. En production
 
 Tout tourne sur le serveur unlockers.ai (Hetzner), en conteneurs Docker. Le Caddy partagé
-(dépôt `unlockers-infra`) termine le HTTPS et route selon le chemin. Un push sur `main`
-redéploie l'app via GitHub Actions.
+(dépôt `unlockers-infra`) termine le HTTPS. Keycloak n'est pas déployé par cette app : c'est le
+Keycloak partagé du serveur (dépôt `unlockers-infra`, https://auth.unlockers.ai), où l'app a son
+realm `simple-app`. Un push sur `main` redéploie l'app via GitHub Actions.
 
 ```mermaid
 flowchart LR
@@ -104,30 +105,31 @@ flowchart LR
     gha -- ssh --> server
 
     internet(["🌍 https://example-app.unlockers.ai"]) --> caddy
+    login(["🔑 https://auth.unlockers.ai"]) --> caddy
 
     subgraph server [Serveur unlockers.ai]
         caddy[Caddy partagé<br/>HTTPS Let's Encrypt]
 
         subgraph web [réseau docker « web »]
             webapp[example-app-web<br/>API + front compilé<br/>:3000]
-            kc[example-app-keycloak<br/>:8080 sous /auth]
+            kc[auth-keycloak<br/>Keycloak partagé, realm simple-app<br/>déployé par unlockers-infra]
         end
 
         subgraph internal [réseau interne]
-            pg[(example-app-postgres<br/>bases app + keycloak)]
+            pg[(example-app-postgres<br/>base app)]
         end
 
-        caddy -- "/auth/*" --> kc
-        caddy -- "tout le reste" --> webapp
+        caddy -- "example-app.unlockers.ai" --> webapp
+        caddy -- "auth.unlockers.ai" --> kc
+        webapp -- "clés JWKS" --> kc
         webapp --> pg
-        kc --> pg
     end
 ```
 
 | Où                                    | Quoi                                                     |
 | ------------------------------------- | -------------------------------------------------------- |
 | `docker-compose.yml`                  | Dev local : Keycloak + Postgres                          |
-| `docker-compose.prod.yml`, `Dockerfile` | Prod : les trois conteneurs                            |
+| `docker-compose.prod.yml`, `Dockerfile` | Prod : l'app et sa base                                |
 | `deploy/deploy.sh`                    | rsync + `docker compose up` (lancé par GitHub Actions)   |
-| `keycloak/realm-simple-app.json`      | Rôles, clients, comptes de test                          |
+| `keycloak/realm-simple-app.json`      | Rôles, clients, comptes de test (dev ; la prod vit dans le Keycloak partagé) |
 | `unlockers-infra` → `caddy/config/sites/example-app.caddy` | Le routage HTTPS                    |

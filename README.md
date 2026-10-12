@@ -89,32 +89,33 @@ En ligne sur **https://example-app.unlockers.ai**, sur le serveur unlockers.ai (
 **Chaque push sur `main` déploie automatiquement** (GitHub Actions, `.github/workflows/deploy.yml`) :
 typecheck, puis `deploy/deploy.sh`, qui copie le code par `rsync` vers `~/example-app` sur le serveur
 et lance `docker compose -f docker-compose.prod.yml up -d --build`. On peut aussi lancer
-`./deploy/deploy.sh` depuis son poste (alias ssh `unlockers`). Trois conteneurs :
+`./deploy/deploy.sh` depuis son poste (alias ssh `unlockers`). Deux conteneurs :
 
 | Conteneur              | Rôle                                                        |
 | ---------------------- | ----------------------------------------------------------- |
 | `example-app-web`      | API Node qui sert aussi le front compilé (voir `Dockerfile`) |
-| `example-app-keycloak` | Keycloak en mode production, servi sous `/auth`             |
-| `example-app-postgres` | Postgres : base `app` pour l'API, base `keycloak`           |
+| `example-app-postgres` | Postgres : base `app` pour l'API                            |
 
+- **Keycloak** : le Keycloak partagé du serveur, **https://auth.unlockers.ai**, déployé par le
+  dépôt `unlockers-ai/unlockers-infra` (voir son `docs/architecture.md`, section *Keycloak*).
+  L'app y a son realm **simple-app** : issuer `https://auth.unlockers.ai/realms/simple-app`.
+  Redéployer ou supprimer cette app ne touche pas au login des autres.
 - **HTTPS et routage** : le Caddy partagé du serveur, configuré dans le dépôt
   `unlockers-ai/unlockers-infra` (`caddy/config/sites/example-app.caddy`). Le certificat
   Let's Encrypt est automatique ; le DNS `*.unlockers.ai` pointe déjà sur le serveur.
 - **Accès SSH de GitHub** : clé dédiée `gha-example-app` (secrets du repo `DEPLOY_SSH_KEY`,
   `HETZNER_HOST`, `HETZNER_USER`, `DEPLOY_KNOWN_HOSTS`).
-- **Secrets de l'app** : générés au premier déploiement dans `~/example-app/.env` sur le serveur, jamais
-  commités (mot de passe Postgres, admin Keycloak, secret de l'agent, mots de passe des comptes de
-  test). Pour les lire : `ssh unlockers cat example-app/.env`.
-- **Console d'admin** : https://example-app.unlockers.ai/auth/admin (`admin` / `KC_ADMIN_PASSWORD`).
-- **Le realm n'est importé qu'au premier démarrage** : ensuite il vit dans Postgres, et les
-  modifications du JSON ne s'appliquent plus en prod. Les faire dans la console (et les reporter
-  dans le JSON pour le dev).
-- **Realm `unlockers-crm`** (CRM sur https://crm.unlockers.ai, repo `unlockers-ai/unlockers-crm`) :
-  ce Keycloak l'héberge aussi. `keycloak/realm-unlockers-crm.json` est une copie de celui du repo
-  CRM (realm, rôle `dirigeant`, client `crm-frontend`), sans utilisateurs : les créer dans la
-  console (realm unlockers-crm → Users, mot de passe, rôle `dirigeant`).
-- **Agent en prod** : `KEYCLOAK=https://example-app.unlockers.ai/auth/realms/simple-app
-  API=https://example-app.unlockers.ai/api CLIENT_SECRET=… ./scripts/agent-demo.sh`
+- **Secrets de l'app** : le mot de passe Postgres, généré au premier déploiement dans
+  `~/example-app/.env` sur le serveur, jamais commité.
+- **Console d'admin Keycloak** : https://auth.unlockers.ai/admin (`admin` / `KC_ADMIN_PASSWORD`
+  de `~/keycloak/.env` sur le serveur), realm **simple-app**.
+- **Le realm vit dans la base du Keycloak partagé** : `keycloak/realm-simple-app.json` ne sert qu'au
+  Keycloak de dev, et le modifier ne change rien en prod. Faire les changements dans la console (et
+  les reporter dans le JSON pour le dev). Le thème de login `prompt-library` est copié dans
+  `unlockers-infra` (`keycloak/themes/`) : y reporter toute modification.
+- **Agent en prod** : `KEYCLOAK=https://auth.unlockers.ai/realms/simple-app
+  API=https://example-app.unlockers.ai/api CLIENT_SECRET=… ./scripts/agent-demo.sh` (secret du client
+  `prompt-agent` : console → realm simple-app → Clients → prompt-agent → Credentials).
 
 ## Partir de ce modèle pour un nouveau projet
 
@@ -124,7 +125,8 @@ Sur GitHub : **Use this template**. Puis, en général :
 - remplacer `backend/src/db.ts` et les routes de `backend/src/server.ts` par votre métier ;
 - remplacer `PromptsPage` / `PromptCard` / `PromptDialog` côté front ;
 - pour le déploiement : changer `DEPLOY_DIR`, `APP_URL` et les noms de conteneurs `example-app-*`
-  (`docker-compose.prod.yml`, `deploy/deploy.sh`), et ajouter le fichier Caddy correspondant
-  dans `unlockers-infra` ;
+  (`docker-compose.prod.yml`, `deploy/deploy.sh`), ajouter le fichier Caddy correspondant
+  dans `unlockers-infra`, et créer le realm du projet dans le Keycloak partagé
+  (`unlockers-infra`, `docs/architecture.md` → *Adding a realm for an app*) ;
 - créer une clé SSH de déploiement et les secrets GitHub du nouveau repo (voir *Production*), sinon
   le workflow de déploiement échoue — ou le supprimer.
